@@ -4,12 +4,14 @@ import time
 import os
 from scapy.all import *
 import random
+from time import sleep
+import select
 
 
 devserver = get_if_addr('eth1')
 testserver = get_if_addr('eth2')
 #SERVER = socket.gethostbyname("172.18.0.8") # Should be 172.l.0.14 - Our hostname
-SERVER = testserver
+SERVER = devserver
 BROADCAST_PORT = 13117
 SERVER_PORT = 2008 #ours
 ADDR = (SERVER,SERVER_PORT) 
@@ -21,9 +23,11 @@ flag2 = True
 
 #The UDP Connections:
 broadcastServer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+broadcastServer.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+broadcastServer.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 broadcastServer.bind(ADDR) # new i added
 # Enable broadcasting mode
-broadcastServer.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
 broadcastServer.settimeout(0.2)
 
 #The TCP Connections:
@@ -34,7 +38,7 @@ TCPserver.bind(ADDR)
 whowon = {}
 
 #SET SCREEN:
-os.system("cls")
+os.system("clear")
 COLORS = {'Black': '\u001b[30m', \
 'Red': '\u001b[31m' ,\
 'Green': '\u001b[32m',\
@@ -82,6 +86,7 @@ def listen(Connections,Clients):
             playerName = data.decode(FORMAT).split('\n')[0]
             Connections[playerName] = conn
             Clients[playerName] = addr[0] 
+            sleep(1)
 
 
 
@@ -96,19 +101,19 @@ def start():
         try:
             global flag
             global flag2
+            global whowon
             flag = True
             flag2 = True
             Clients = {} # {Name: ip}
-            Connections = {} #{name : connection per game}
-            
+            Connections = {} #{name : connection per game}   
             thread = threading.Thread(target=listen,args = (Connections,Clients)) #thread per tcp start connection
             thread2 = threading.Thread(target=broadcast_message_before_game) #thread per broadcasts
             thread.start()
             thread2.start()
             thread.join()
             thread2.join()
-            print(Connections)
-            print(Clients)
+            #print(Connections)
+            #print(Clients)
         except Exception as e:
             print("connection lost")
             continue
@@ -116,7 +121,7 @@ def start():
 
         #Enter the game:
         if(len(Clients.keys()) > 0):
-                    
+            flag2 = True        
              # building the welcome message
             message = '*******************************************\n'
             message += 'Welcome to Quick Maths.\n'
@@ -130,6 +135,8 @@ def start():
             print(message)
             for name in Connections.keys():
                 whowon[name] = False
+            #print("---------------------------")    
+            #print(whowon)
             for name in Connections.keys():
                  #Get any user connection:
                 
@@ -139,13 +146,16 @@ def start():
                 #thread per user:
                 thread_game = threading.Thread(target=game,args=(name,conn_player,message,equationresult))
                 thread_game.start()
-                #maybe switch to thread_game.join()
-                while(flag2 == True):
-                    time.sleep(0.1)
+                #maybe switch to thread_game.join()   
+            while(flag2 == True):
+                time.sleep(0.1)
+            
             print(COLORS['Green'] + "Game Over!\n")
             print(COLORS['Green'] + "The correct answer was " + str(equationresult) +"\n")
             print('\n')
             counteri = 0
+            #print("outside")
+            #print(whowon)
             for name,won in whowon.items():
                 if(won == True):
                     counteri+=1
@@ -158,12 +168,18 @@ def start():
                 conn_player = Connections[name]
                 if(whowon[name] == True):
                     endgamemessage = "You have won, Congratulations"
-                thread_endgame = threading.Thread(target=endgame,args=(name,conn_player,endgamemessage))
-                thread_endgame.start()
-                thread.join(1)
+                else:
+                    endgamemessage = "You have lost, better luck next time"    
+                endgame(name,conn_player,endgamemessage)
+                #thread_endgame = threading.Thread(target=endgame,args=(name,conn_player,endgamemessage))
+                #thread_endgame.start()
+                #thread.join(1)
             print(COLORS["Reset"]+"Game over, sending out offer requests...")
+            sleep(1)
+            whowon = {}
         else:
-            print(COLORS["Reset"]+"No game, sending out offer requests...")    
+            print(COLORS["Reset"]+"No game, sending out offer requests...")
+            sleep(1) 
                 
 
 def game(name,conn_player,messageStart,equationresult):
@@ -173,17 +189,27 @@ def game(name,conn_player,messageStart,equationresult):
         conn_player.send(messageStart.encode(FORMAT))
         conn_player.send(str(equationresult).encode(FORMAT))
 
-        start_game_time = time.time()
-        while(start_game_time + 10 > time.time()):
+        r, _, _ = select.select([conn_player], [], [],10)
+        if(r):
             data,addr = conn_player.recvfrom(1024)
-            while(flag2 == True):
-                key = data.decode(FORMAT)
-                if(key.isnumeric()):
-                    if(int(key) == equationresult):       
-                        flag2 = False
-                        whowon[name] = True
-                    else:
-                        break         
+            key = data.decode(FORMAT)
+            if(key.isnumeric()):
+                if(int(key) == equationresult): 
+                    #print("inside") 
+                    #print(name)    
+                    flag2 = False
+                    whowon[name] = True
+                    #print(whowon)
+                else:
+                    for i in whowon.keys():
+                        if(i != name):
+                            whowon[i] = True
+            else:
+                for i in whowon.keys():
+                    if(i != name):
+                        whowon[i] = True
+        flag2 = False
+        sleep(1)           
     except:
         pass
 
