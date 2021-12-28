@@ -6,6 +6,7 @@ from scapy.all import *
 import random
 from time import sleep
 import select
+from struct import *
 
 
 devserver = get_if_addr('eth1')
@@ -55,7 +56,10 @@ COLORS = {'Black': '\u001b[30m', \
 
 def broadcast_message_before_game():
     global flag 
-    header = bytes.fromhex('abcddcba') + bytes.fromhex('02') + bytes.fromhex('07D8')
+    #header = bytes.fromhex('abcddcba') + bytes.fromhex('02') + bytes.fromhex('07D8')
+    magic_cookie = 0xabcddcba
+    offer_msg_type = 0x2
+    header = struct.pack('!IbH', magic_cookie, offer_msg_type, SERVER_PORT)
     broadcast_message = header
     while(flag):
         broadcastServer.sendto(broadcast_message, ('<broadcast>', 13117))
@@ -112,75 +116,68 @@ def start():
             thread2.start()
             thread.join()
             thread2.join()
-            #print(Connections)
-            #print(Clients)
         except Exception as e:
             print("connection lost")
             continue
 
+        try:
+            #Enter the game:
+            if(len(Clients.keys()) > 0):
+                flag2 = True        
+                # building the welcome message
+                message = '*******************************************\n'
+                message += 'Welcome to Quick Maths.\n'
+                i=1
+                for p in Clients.keys():
+                    message +='Player '+str(i)+': '+p+'\n'
+                    i+=1
+                message += '==\nPlease answer the following question as fast as you can:\n'
+                equationresult,equationstring = choose_equation()
+                message += 'How much is ' + equationstring + '?\n'
+                print(message)
+                for name in Connections.keys():
+                    whowon[name] = False
+                for name in Connections.keys():
+                    #Get any user connection:
+                        
+                    conn_player = Connections[name]
+                    conn_player.settimeout(30) #After that the server move on - raise a time out exception
+                        
+                    #thread per user:
+                    thread_game = threading.Thread(target=game,args=(name,conn_player,message,equationresult))
+                    thread_game.start() 
+                while(flag2 == True):
+                    time.sleep(0.1)
+                    
+                print(COLORS['Green'] + "Game Over!\n")
+                print(COLORS['Green'] + "The correct answer was " + str(equationresult) +"\n")
+                print('\n')
+                counteri = 0
+                for name,won in whowon.items():
+                    if(won == True):
+                        counteri+=1
+                        print(COLORS['Green'] + "Congratulations to the winner: " + name + "\n")
+                if(counteri == 0):
+                    print(COLORS['Red']+"Times up!\n")
+                    print(COLORS['Red']+"No one has answered correctly in 10 seconds so we have a draw!\n")
+                #Send the end message:
+                for name in Connections.keys():
+                    conn_player = Connections[name]
+                    if(whowon[name] == True):
+                        endgamemessage = "You have won, Congratulations"
+                    else:
+                        endgamemessage = "You have lost, better luck next time"    
+                    endgame(name,conn_player,endgamemessage)
+                print(COLORS["Reset"]+"Game over, sending out offer requests...")
+                sleep(1)
+                whowon = {}
+            else:
+                print(COLORS["Reset"]+"No game, sending out offer requests...")
+                sleep(1) 
+        except Exception as e:
+            print("connection lost")
+            continue
 
-        #Enter the game:
-        if(len(Clients.keys()) > 0):
-            flag2 = True        
-             # building the welcome message
-            message = '*******************************************\n'
-            message += 'Welcome to Quick Maths.\n'
-            i=1
-            for p in Clients.keys():
-                message +='Player '+str(i)+': '+p+'\n'
-                i+=1
-            message += '==\nPlease answer the following question as fast as you can:\n'
-            equationresult,equationstring = choose_equation()
-            message += 'How much is ' + equationstring + '?\n'
-            print(message)
-            for name in Connections.keys():
-                whowon[name] = False
-            #print("---------------------------")    
-            #print(whowon)
-            for name in Connections.keys():
-                 #Get any user connection:
-                
-                conn_player = Connections[name]
-                conn_player.settimeout(30) #After that the server move on - raise a time out exception
-                
-                #thread per user:
-                thread_game = threading.Thread(target=game,args=(name,conn_player,message,equationresult))
-                thread_game.start()
-                #maybe switch to thread_game.join()   
-            while(flag2 == True):
-                time.sleep(0.1)
-            
-            print(COLORS['Green'] + "Game Over!\n")
-            print(COLORS['Green'] + "The correct answer was " + str(equationresult) +"\n")
-            print('\n')
-            counteri = 0
-            #print("outside")
-            #print(whowon)
-            for name,won in whowon.items():
-                if(won == True):
-                    counteri+=1
-                    print(COLORS['Green'] + "Congratulations to the winner: " + name + "\n")
-            if(counteri == 0):
-                print(COLORS['Red']+"Times up!\n")
-                print(COLORS['Red']+"No one has answered correctly in 10 seconds so we have a draw!\n")
-            #Send the end message:
-            for name in Connections.keys():
-                conn_player = Connections[name]
-                if(whowon[name] == True):
-                    endgamemessage = "You have won, Congratulations"
-                else:
-                    endgamemessage = "You have lost, better luck next time"    
-                endgame(name,conn_player,endgamemessage)
-                #thread_endgame = threading.Thread(target=endgame,args=(name,conn_player,endgamemessage))
-                #thread_endgame.start()
-                #thread.join(1)
-            print(COLORS["Reset"]+"Game over, sending out offer requests...")
-            sleep(1)
-            whowon = {}
-        else:
-            print(COLORS["Reset"]+"No game, sending out offer requests...")
-            sleep(1) 
-                
 
 def game(name,conn_player,messageStart,equationresult):
     try:
@@ -194,12 +191,9 @@ def game(name,conn_player,messageStart,equationresult):
             data,addr = conn_player.recvfrom(1024)
             key = data.decode(FORMAT)
             if(key.isnumeric()):
-                if(int(key) == equationresult): 
-                    #print("inside") 
-                    #print(name)    
+                if(int(key) == equationresult):   
                     flag2 = False
                     whowon[name] = True
-                    #print(whowon)
                 else:
                     for i in whowon.keys():
                         if(i != name):

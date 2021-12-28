@@ -7,6 +7,7 @@ import sys
 import select
 from time import sleep
 import multiprocessing
+import struct
 
 #Default:
 PORT = 0
@@ -49,17 +50,23 @@ def start():
         #Broadcast:
         print("Client started, listening for offer requests... ")
         data, addr = clientUDP.recvfrom(1024)
-        header = data[:5]
-        #print(addr[0])
+        (magicCookie, msg_type, server_port) = struct.unpack('!IbH', data)
+        #Check the message format:
+        #if magicCookie == 0xabcddcba:
+        #    if msg_type == 0x2:
+
+        #header = data[:5]
+        ##print(addr[0])
         address = addr[0]
         
         #Check the message format:
-        if header == bytes.fromhex('abcddcba') + bytes.fromhex('02'):
-            
-            dest_port = int.from_bytes(data[5:7],"big")
+        #if header == bytes.fromhex('abcddcba') + bytes.fromhex('02'):
+        if magicCookie == 0xabcddcba and msg_type == 0x2:
+
+            #dest_port = int.from_bytes(data[5:7],"big")
             #print("the address in which the udp broadcast came from: " + address)
             #print(dest_port)
-            SERVER_ADDR = (address,dest_port)
+            SERVER_ADDR = (address,server_port)
             
             print(f"Received offer from {address} , attempting to connect...")
             
