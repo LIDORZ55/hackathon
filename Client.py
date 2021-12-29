@@ -14,8 +14,6 @@ PORT = 0
 SERVER_ADDR = 0
 FORMAT = 'utf-8'
 
-SERVER = socket.gethostbyname(socket.gethostname()) 
-ADDR = (SERVER,PORT)
 
 #global param
 flag = True
@@ -45,13 +43,17 @@ clientUDP.bind(("", 13117))
 
 def start():
     while True:
-        global flag 
-        flag = True
-        #Broadcast:
-        print("Client started, listening for offer requests... ")
-        data, addr = clientUDP.recvfrom(1024)
-        (magicCookie, msg_type, server_port) = struct.unpack('!IbH', data)
-        address = addr[0]
+        try:
+            global flag 
+            flag = True
+            #Broadcast:
+            print("Client started, listening for offer requests... ")
+            data, addr = clientUDP.recvfrom(1024)
+            (magicCookie, msg_type, server_port) = struct.unpack('IbH', data)
+            address = addr[0]
+        except Exception as e:
+            print(e)
+            continue     
         
         #Check the message format:
         if magicCookie == 0xabcddcba and msg_type == 0x2:
@@ -69,9 +71,6 @@ def start():
                 #Game starts:
                 data, addr = client.recvfrom(100000)
                 print(COLORS["Blue"] + data.decode(FORMAT))
-                data, addr = client.recvfrom(100000)
-                equationresult1 = data.decode(FORMAT)
-                equationresult = int(float(equationresult1))
             except Exception as e:
                 print(e)
                 pass     
@@ -83,9 +82,6 @@ def start():
                     try:
                         key = getch.getch()
                         client.send(key.encode(FORMAT))
-                        if(key.isnumeric()):
-                            if(int(float(key)) == equationresult):       
-                                flag = False
                         sleep(0.5)
                     except Exception as e:
                         print (e)

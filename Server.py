@@ -28,10 +28,11 @@ broadcastServer.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 broadcastServer.bind(ADDR) # new i added
 # Enable broadcasting mode
 
-broadcastServer.settimeout(0.2)
+#broadcastServer.settimeout(0.2)
 
 #The TCP Connections:
 TCPserver = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#TCPserver.bind(("",2008))
 TCPserver.bind(ADDR)
 
 #For game
@@ -58,7 +59,7 @@ def broadcast_message_before_game():
     #header = bytes.fromhex('abcddcba') + bytes.fromhex('02') + bytes.fromhex('07D8')
     magic_cookie = 0xabcddcba
     offer_msg_type = 0x2
-    header = struct.pack('!IbH', magic_cookie, offer_msg_type, SERVER_PORT)
+    header = struct.pack('IbH', magic_cookie, offer_msg_type, SERVER_PORT)
     broadcast_message = header
     while(flag):
         broadcastServer.sendto(broadcast_message, ('<broadcast>', 13117))
@@ -190,7 +191,6 @@ def game(name,conn_player,messageStart,equationresult):
         global flag2
         #Start Game Message:
         conn_player.send(messageStart.encode(FORMAT))
-        conn_player.send(str(equationresult).encode(FORMAT))
 
         r, _, _ = select.select([conn_player], [], [],10)
         if(r):
