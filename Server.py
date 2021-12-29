@@ -11,8 +11,7 @@ from struct import *
 
 devserver = get_if_addr('eth1')
 testserver = get_if_addr('eth2')
-#SERVER = socket.gethostbyname("172.18.0.8") # Should be 172.l.0.14 - Our hostname
-SERVER = devserver
+SERVER = testserver
 BROADCAST_PORT = 13117
 SERVER_PORT = 2008 #ours
 ADDR = (SERVER,SERVER_PORT) 
