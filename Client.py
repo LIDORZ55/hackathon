@@ -55,24 +55,26 @@ def start():
         
         #Check the message format:
         if magicCookie == 0xabcddcba and msg_type == 0x2:
-
-            SERVER_ADDR = (address,server_port)
-            
-            print(f"Received offer from {address} , attempting to connect...")
-            
-            #Enable TCP connection:
-            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect(SERVER_ADDR)
-            client.send("TeamPepeja".encode(FORMAT))
-            
-            #Game starts:
-            data, addr = client.recvfrom(100000)
-            print(COLORS["Blue"] + data.decode(FORMAT))
-            data, addr = client.recvfrom(100000)
-            equationresult1 = data.decode(FORMAT)
-            equationresult = int(float(equationresult1))
-
-
+            try:
+                SERVER_ADDR = (address,server_port)
+                
+                print(f"Received offer from {address} , attempting to connect...")
+                
+                #Enable TCP connection:
+                client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                client.connect(SERVER_ADDR)
+                #fromuser = sys.argv[1] + "\n" #
+                client.send("TeamPepeja".encode(FORMAT))
+                
+                #Game starts:
+                data, addr = client.recvfrom(100000)
+                print(COLORS["Blue"] + data.decode(FORMAT))
+                data, addr = client.recvfrom(100000)
+                equationresult1 = data.decode(FORMAT)
+                equationresult = int(float(equationresult1))
+            except Exception as e:
+                print(e)
+                pass     
 
             def game():
                 global flag
